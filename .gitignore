@@ -1,0 +1,7 @@
+# Ignorar archivos de compilación y ejecutables de C/C++
+*.exe
+*.o
+*.out
+
+# Ignorar el directorio de configuración de Visual Studio Code
+.vscode/
