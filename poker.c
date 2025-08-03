@@ -6,31 +6,20 @@
 #include <conio.h>
 
 #define ANSI_COLOR_RESET "\x1b[0m"
-FILE *archivo;
 
-// --- Tus Estructuras de Datos (Sin cambios) ---
-typedef struct
-{
-    char suit[4];
-    char displayValue[3];
-    int numericValue;
-    const char *color;
-} GameCard; // Renombrada para evitar conflicto con la de poker.h
+FILE *SaveFile;
 
-typedef struct
-{
-    char username[11];
-    int score;
-    long uniqueID;
-    time_t timestamp;
-} Player;
+// CAMBIO 2: Se eliminan las definiciones duplicadas de GameCard y Player.
+// Ahora se usan las que están en poker-v2.h, solucionando el error de redefinición.
 
-void startGame();
-void showRules();
-void showMainMenu();
-// --- Implementación de tus funciones de dibujo (Sin cambios en su lógica interna) ---
+// Prototipos para funciones internas de este archivo
+void print_bigger_card(const char *suit, const char value, const char *color);
+void generate_card_matrix(GameCard card, char card_buffer[7][7][5]);
+void SaveRecord(Player players[], int numPlayers);
+int selectNumberOfPlayers();
 
-void print_bigger_card(const char* suit, const char value, const char* color) {
+// --- Tus funciones de dibujo (Sin cambios en su lógica interna) ---
+void print_bigger_card(const char *suit, const char value, const char *color){
     const char *card_template[7][7] = {
         {"┌", "─", "─", "─", "─", "─", "┐"}, {"│", " ", " ", " ", " ", " ", "│"},
         {"│", " ", " ", " ", " ", " ", "│"}, {"│", " ", " ", " ", " ", " ", "│"},
@@ -62,7 +51,7 @@ void print_bigger_card(const char* suit, const char value, const char* color) {
     printf("\n");
 }
 
-void printCard(const char* suit, char value, const char* color) {
+void printCard(const char *suit, char value, const char *color){
     value = toupper(value);
     if (value == 'J') {
         print_bigger_card(JOKER, 'J', color);
@@ -75,9 +64,8 @@ void printCard(const char* suit, char value, const char* color) {
     print_bigger_card(suit, value, color);
 }
 
-// --- CAMBIO 3: Implementación de la nueva lógica para impresión horizontal ---
-
-void generate_card_matrix(Card card, char card_buffer[7][7][5]) {
+// --- Tu lógica para impresión horizontal (Sin cambios) ---
+void generate_card_matrix(GameCard card, char card_buffer[7][7][5]){
     const char *card_template[7][7] = {
         {"┌", "─", "─", "─", "─", "─", "┐"}, {"│", " ", " ", " ", " ", " ", "│"},
         {"│", " ", " ", " ", " ", " ", "│"}, {"│", " ", " ", " ", " ", " ", "│"},
@@ -90,19 +78,26 @@ void generate_card_matrix(Card card, char card_buffer[7][7][5]) {
         }
     }
     strcpy(card_buffer[3][3], card.suit);
-    char value = toupper(card.value);
-    if (value == 'J') { strcpy(card_buffer[3][3], JOKER); }
-    if (value == '0') {
-        strcpy(card_buffer[1][1], "10");
-        strcpy(card_buffer[5][4], "10");
-    } else {
+    char value = toupper(card.displayValue[0]);
+    if (value == 'J') {
+        strcpy(card_buffer[3][3], JOKER);
+    }
+    if (strcmp(card.displayValue, "10") == 0)
+    {
+        strcpy(card_buffer[1][1], "1");
+        strcpy(card_buffer[1][2], "0");
+        strcpy(card_buffer[5][4], "1");
+        strcpy(card_buffer[5][5], "0");
+    }
+    else
+    {
         char value_str[2] = {value, '\0'};
         strcpy(card_buffer[1][2], value_str);
         strcpy(card_buffer[5][4], value_str);
     }
 }
 
-void print_hand(Card hand[], int num_cards) {
+void print_hand(GameCard hand[], int num_cards) {
     if (num_cards == 0) return;
     char all_cards_buffer[num_cards][7][7][5];
     for (int i = 0; i < num_cards; i++) {
@@ -111,7 +106,7 @@ void print_hand(Card hand[], int num_cards) {
     for (int row = 0; row < 7; row++) {
         for (int card_idx = 0; card_idx < num_cards; card_idx++) {
             printf("%s", hand[card_idx].color);
-            for(int col=0; col < 7; col++){
+            for (int col = 0; col < 7; col++) {
                 printf("%s", all_cards_buffer[card_idx][row][col]);
             }
             printf("   ");
@@ -122,7 +117,6 @@ void print_hand(Card hand[], int num_cards) {
 }
 
 // --- Tu Lógica de Menús y Jugadores (Sin cambios) ---
-
 int selectNumberOfPlayers() {
     int selection = 0, key = 0;
     while (1) {
@@ -140,8 +134,44 @@ int selectNumberOfPlayers() {
     }
 }
 
+void CreateDeck(GameCard deck[]) {
+    const char *suits[] = {HEART, SPADE, DIAMOND, CLUB};
+    const char *colors[] = {RED, WHITE, RED, WHITE}; // Corregido para que coincida con los palos
+    const char *displayValues[] = {"A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"};
+    int numericValues[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10};
+    int index = 0;
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 13; j++) {
+            strcpy(deck[index].suit, suits[i]);
+            strcpy(deck[index].displayValue, displayValues[j]);
+            deck[index].numericValue = numericValues[j];
+            deck[index].color = colors[i];
+            switch (j) {
+                case 10: deck[index].isSpecial = TRUE; deck[index].specialValue = 1; break;
+                case 11: deck[index].isSpecial = TRUE; deck[index].specialValue = 2; break;
+                case 12: deck[index].isSpecial = TRUE; deck[index].specialValue = 3; break;
+                default: deck[index].isSpecial = FALSE; deck[index].specialValue = 0;
+            }
+            index++;
+        }
+    }
+    for (int i = index - 1; i > 0; i--) {
+        int j = rand() % (i + 1);
+        GameCard temp = deck[i];
+        deck[i] = deck[j];
+        deck[j] = temp;
+    }
+}
+
+void SaveRecord(Player players[], int numPlayers){
+    FILE *record = fopen("record.txt", "a");
+    for (int i = 0; i < numPlayers; i++) {
+        fprintf(record, "%ld %s %d %ld\n", players[i].uniqueID, players[i].username, players[i].score, (long)players[i].timestamp);
+    }
+    fclose(record);
+}
+
 void startGame() {
-    archivo = fopen("record.txt", "a");
     system("cls");
     printf("--- Iniciando el Juego ---\n\n");
     int numPlayers = selectNumberOfPlayers();
@@ -153,11 +183,31 @@ void startGame() {
         players[i].score = 0;
         players[i].timestamp = time(NULL);
         players[i].uniqueID = players[i].timestamp + rand() % 1000;
+        players[i].cardCount = 0; 
         printf("¡Jugador '%s' registrado!\n\n", players[i].username);
     }
-    for (int i = 0; i < numPlayers; i++) {
-        fprintf(archivo, "%ld %s %d %ld\n", players[i].uniqueID, players[i].username, players[i].score, (long)players[i].timestamp);
+    system("cls");
+    GameCard gameDeck[52];
+    CreateDeck(gameDeck);
+    int cardDealIndex = 0;
+    for (int i = 0; i < 2; i++) { 
+        for (int j = 0; j < numPlayers; j++) {
+            players[j].CardOwn[players[j].cardCount] = cardDealIndex;
+            players[j].cardCount++;
+            cardDealIndex++;
+        }
     }
+    for (int i = 0; i < numPlayers; i++) {
+        printf("Jugador %d (%s):\n", i + 1, players[i].username);
+        GameCard hand[players[i].cardCount];
+        for (int j = 0; j < players[i].cardCount; j++) {
+            int cardIndex = players[i].CardOwn[j];
+            hand[j] = gameDeck[cardIndex]; 
+        }
+        print_hand(hand, players[i].cardCount);
+        printf("\n");
+    }
+    SaveRecord(players, numPlayers);
     printf("¡El juego ha terminado!\n");
     system("pause");
     showMainMenu();
@@ -178,10 +228,15 @@ void showMainMenu() {
         system("cls");
         printf("=== BIENVENIDO A JACKONE ===\n\n");
 
-        // CAMBIO 4: Se reemplazan las llamadas a printCard por una sola llamada a print_hand.
-        Card menu_cards[6] = {
-            {ACE, 'A', RED}, {HEART, 'K', GREEN}, {SPADE, 'Q', BLUE},
-            {CLUB, 'J', MAGENTA}, {JOKER, 'J', CYAN}, {DIAMOND, '9', YELLOW}
+        // CAMBIO 3: Se corrige la inicialización de menu_cards para que coincida
+        // con la estructura GameCard que tú definiste.
+        GameCard menu_cards[6] = {
+            {ACE, "A", 0, FALSE, 0, RED},
+            {HEART, "K", 10, TRUE, 3, GREEN},
+            {SPADE, "Q", 10, TRUE, 2, BLUE},
+            {CLUB, "10", 10, TRUE, 1, MAGENTA},
+            {JOKER, "J", 10, TRUE, 1, CYAN},
+            {DIAMOND, "9", 9, FALSE, 0, YELLOW}
         };
         print_hand(menu_cards, 6);
 
@@ -194,12 +249,8 @@ void showMainMenu() {
         switch (select) {
             case 1: startGame(); break;
             case 2: showRules(); break;
-            case 3:
-                printf("\nMarcadores:\n");
-                printf("Jugador 1: 100 puntos\n");
-                system("pause");
-                break;
-            case 4: printf("\nGracias por jugar. ¡Adios!\n"); break;
+            case 3: system("cls"); printf("\nMarcadores:\n"); printf("Jugador 1: 100 puntos\n"); system("pause"); break;
+            case 4: system("cls"); printf("\nGracias por jugar. ¡Adios!\n"); break;
             default: printf("\nOpcion no valida.\n"); system("pause"); break;
         }
     }
