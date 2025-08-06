@@ -1,9 +1,4 @@
-/**
- * poker.h - Archivo de Cabecera
- *
- * Contiene las declaraciones de funciones, las inclusiones de librerías
- * estándar y las definiciones de estructuras y macros para el proyecto.
- */
+
 
 #ifndef POKER_V2_H
 #define POKER_V2_H
@@ -15,7 +10,6 @@
 #include <wchar.h>
 #include <locale.h>
 
-// --- Definiciones de Colores y Palos (Sin cambios) ---
 #define RED     "\x1b[31m"
 #define BLACK   "\e[0;30m"
 #define GREEN   "\x1b[32m"
@@ -35,8 +29,6 @@
 #define TRUE 1
 #define FALSE 0
 
-// --- Estructuras de Datos ---
-// Tu estructura GameCard, sin cambios.
 typedef struct
 {
     char suit[4];
@@ -47,19 +39,16 @@ typedef struct
     const char *color;
 } GameCard;
 
-// Tu estructura Player, sin cambios.
 typedef struct
 {
     char username[11];
     int score;
-    int JackOneCount;
     int CardOwn[17];
     int cardCount;
     long uniqueID;
     time_t timestamp;
 } Player;
 
-// --- Declaraciones de Funciones ---
 void print_hand(GameCard hand[], int num_cards);
 void printCard(const char *suit, char value, const char *color);
 void startGame();
