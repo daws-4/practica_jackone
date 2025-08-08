@@ -211,6 +211,40 @@ void SaveRecord(Player players[], int numPlayers)
     fclose(record);
 }
 
+// Calcula la suma de los valores numéricos de las cartas en la mano de un jugador
+int calculateHandValue(Player player, GameCard gameDeck[])
+{
+    int total = 0;
+    for (int i = 0; i < player.cardCount; i++)
+    {
+        total += gameDeck[player.CardOwn[i]].numericValue;
+    }
+    return total;
+}
+
+// Obtiene el valor de la carta más alta para el desempate (K=13, Q=12, J=11, etc.)
+int getHighestCardValue(Player player, GameCard gameDeck[])
+{
+    int maxValue = 0;
+    for (int i = 0; i < player.cardCount; i++)
+    {
+        int cardValue = gameDeck[player.CardOwn[i]].numericValue;
+        // Asignar valores más altos a K, Q, J para el desempate
+        if (strcmp(gameDeck[player.CardOwn[i]].displayValue, "K") == 0)
+            cardValue = 13;
+        if (strcmp(gameDeck[player.CardOwn[i]].displayValue, "Q") == 0)
+            cardValue = 12;
+        if (strcmp(gameDeck[player.CardOwn[i]].displayValue, "J") == 0)
+            cardValue = 11;
+
+        if (cardValue > maxValue)
+        {
+            maxValue = cardValue;
+        }
+    }
+    return maxValue;
+}
+
 void startGame()
 {
     system("cls");
@@ -250,17 +284,27 @@ void startGame()
 
         int currentPlayerIndex = 0;
         boolean roundOver = FALSE;
+        int countRounds = 1;
         int turnDirection = 1;
-        int roundNumber = 1;
+        int usedK = 0;
+        int playerStatuses[numPlayers];
+        for (int i = 0; i < numPlayers; i++)
+            playerStatuses[i] = 0; // 0: Jugando, 1: Plantado
 
         while (!roundOver)
         {
             system("cls");
-            printf("--- RONDA %d ---\n\n", roundNumber/numPlayers+1);
-
+            printf("--- RONDA %d ---\n\n", countRounds/numPlayers+1);
             for (int i = 0; i < numPlayers; i++)
             {
-                printf("Jugador %s :\n", players[i].username);
+                int handValue = calculateHandValue(players[i], gameDeck);
+                const char *statusStr = "JUGANDO";
+                if (playerStatuses[i] == 1)
+                    statusStr = "PLANTADO";
+                if (playerStatuses[i] == 2)
+                    statusStr = "ELIMINADO";
+
+                printf("Jugador %s (%s) - Puntos: %d\n", players[i].username, statusStr, handValue);
                 GameCard hand[players[i].cardCount];
                 for (int j = 0; j < players[i].cardCount; j++)
                 {
@@ -271,12 +315,35 @@ void startGame()
                 printf("\n");
             }
             printf("----------------------------------\n");
-            printf("Turno de: %s\n Jugador %d\n", players[currentPlayerIndex].username, currentPlayerIndex + 1);
 
+            // Verificar si solo queda un jugador activo
+            int activePlayers = 0;
+            for (int i = 0; i < numPlayers; i++)
+            {
+                if (playerStatuses[i] == 0)
+                    activePlayers++;
+            }
+            if (activePlayers <= 1)
+            {
+                roundOver = TRUE;
+                continue;
+            }
+            printf("Turno de: %s jugador: %d\n", players[currentPlayerIndex].username, currentPlayerIndex+1);
+
+            if (playerStatuses[currentPlayerIndex] !=0)
+            {
+                if(playerStatuses[currentPlayerIndex]==2){
+                    printf("%s ha sido eliminado. Pasando al siguiente jugador...\n", players[currentPlayerIndex].username);
+                }else{
+                    printf("%s ya se ha plantado. Pasando al siguiente jugador...\n", players[currentPlayerIndex].username);
+                }
+                Sleep(1500);
+                currentPlayerIndex = (currentPlayerIndex + turnDirection + numPlayers) % numPlayers;
+                continue;
+            }
 
             // --- Lógica para listar cartas especiales y manejar el turno ---
-            GameCard specialCards[3];                     // K, Q, J
-            int specialCardHandIndices[3] = {-1, -1, -1}; // Índices en la mano del jugador
+            int specialCardHandIndices[3] = {-1, -1, -1}; // Índices en la mano del jugador para K, Q, J
             boolean hasK = FALSE, hasQ = FALSE, hasJ = FALSE;
 
             for (int j = 0; j < players[currentPlayerIndex].cardCount; j++)
@@ -286,163 +353,247 @@ void startGame()
                 {
                     if (gameDeck[cardIndex].specialValue == 3 && !hasK)
                     {
-                        specialCards[2] = gameDeck[cardIndex];
                         specialCardHandIndices[2] = j;
                         hasK = TRUE;
                     }
                     if (gameDeck[cardIndex].specialValue == 2 && !hasQ)
                     {
-                        specialCards[1] = gameDeck[cardIndex];
                         specialCardHandIndices[1] = j;
                         hasQ = TRUE;
                     }
                     if (gameDeck[cardIndex].specialValue == 1 && !hasJ)
                     {
-                        specialCards[0] = gameDeck[cardIndex];
                         specialCardHandIndices[0] = j;
                         hasJ = TRUE;
                     }
                 }
             }
-            int select = 0;
-            int opcionValida = 0;
-            int opcionEspecialValida = 0;
-            int usedK = 0;
-            while (!opcionValida)
+
+            printf("Elige tu jugada:\n");
+            printf("1. Pedir una carta (DRAW)\n");
+            printf("2. Plantarse (STAND)\n");
+            if (hasK || hasQ || hasJ)
             {
-                printf("Elige tu jugada:\n");
-                printf("1. Pedir una carta (DRAW)\n");
-                printf("2. Plantarse (STAND)\n");
+                printf("3. Usar una carta especial (HIT)\n");
+            }
+            int select = 0;
+            scanf("%d", &select);
+
+            switch (select)
+            {
+            case 1:
+                if (cardDealIndex < 52)
+                {
+                    players[currentPlayerIndex].CardOwn[players[currentPlayerIndex].cardCount] = cardDealIndex++;
+                    players[currentPlayerIndex].cardCount++;
+                    printf("\nHas pedido una carta.\n");
+                }
+                else
+                {
+                    printf("\nNo quedan cartas en el mazo.\n");
+                }
+                break;
+            case 2:
+                playerStatuses[currentPlayerIndex] = 1;
+                printf("\nTe has plantado.\n");
+                break;
+            case 3:
                 if (hasK || hasQ || hasJ)
                 {
-                    printf("3. Usar una carta especial (HIT)\n");
-                    printf("4. Guardar Partida y salir\n");
-                }else{
-                    printf("3. Guardar Partida y salir\n");
-                }
-                scanf("%d", &select);
+                    int specialSelect = 0;
+                    int cardToRemoveIdx = -1;
+                    int nextPlayerIndex = (currentPlayerIndex + turnDirection + numPlayers) % numPlayers;
 
-                switch (select)
-                {
-                case 1:
-                    if (cardDealIndex < 52)
-                    {
-                        players[currentPlayerIndex].CardOwn[players[currentPlayerIndex].cardCount] = cardDealIndex++;
-                        players[currentPlayerIndex].cardCount++;
-                        printf("\nHas pedido una carta.\n");
-                        opcionValida = 1;
-                    }
-                    else
-                    {
-                        printf("\nNo quedan cartas en el mazo.\n");
-                    }
-                    break;
-                case 2:
-                    currentPlayerIndex = (currentPlayerIndex + turnDirection + numPlayers) % numPlayers;
-                    printf("\nTe has plantado.\n");
-                    opcionValida = 1;
-                    break;
-                case 3:
-                    if (hasK || hasQ || hasJ)
-                    {
-                        while(!opcionEspecialValida){
-                        system("cls");
-                        printf("Selecciona la carta especial a usar:\n");
-                        if (hasJ)
-                            printf("1. Usar J\n");
-                        if (hasQ)
-                            printf("2. Usar Q (Reversa)\n");
-                        if (hasK)
-                            printf("3. Usar K (Saltar turno)\n");
-
-                        int specialSelect = 0;
-                        scanf("%d", &specialSelect);
-
-                        int cardToRemoveIdx = -1;
-                        int nextPlayerIndex = (currentPlayerIndex + turnDirection + numPlayers) % numPlayers;
-
-                        switch (specialSelect)
-                        {
-                        case 1: // JOKER
-                            if (hasJ)
-                            {
-                                int penalty = (players[nextPlayerIndex].cardCount % 2 == 0) ? 2 : 4;
-                                printf("\nSe aplicara una penalizacion de %d cartas a %s.\n", penalty, players[nextPlayerIndex].username);
-                                for (int i = 0; i < penalty && cardDealIndex < 52; i++)
-                                {
-                                    players[nextPlayerIndex].CardOwn[players[nextPlayerIndex].cardCount] = cardDealIndex++;
-                                    players[nextPlayerIndex].cardCount++;
-                                }
-                                cardToRemoveIdx = specialCardHandIndices[0];
-                                opcionEspecialValida = 1;
-                            }
-                            break;
-                        case 2: // QUEEN
-                            if (hasQ)
-                            {
-                                printf("\n¡Reversa! El orden de los turnos ha cambiado.\n");
-                                turnDirection *= -1;
-                                cardToRemoveIdx = specialCardHandIndices[1];
-                                opcionEspecialValida = 1;
-                            }
-                            break;
-                        case 3: // KING
-                            if (hasK)
-                            {
-                                printf("\n¡Salto! %s pierde su turno.\n", players[nextPlayerIndex].username);
-                                Sleep(1000);
-                                cardToRemoveIdx = specialCardHandIndices[2];
-                                usedK = 1;
-                                opcionEspecialValida = 1;
-                            }
-                            break;
-                        default:
-                            printf("Seleccion invalida.\n");
-                            break;
-                        }
-
-                        if (cardToRemoveIdx != -1)
-                        {
-                            // Eliminar la carta usada de la mano del jugador
-                            for (int i = cardToRemoveIdx; i < players[currentPlayerIndex].cardCount - 1; i++)
-                            {
-                                players[currentPlayerIndex].CardOwn[i] = players[currentPlayerIndex].CardOwn[i + 1];
-                            }
-                            players[currentPlayerIndex].cardCount--;
-                        }
-                        opcionValida = 1;
-                        }
-                        if(usedK) {
-                            currentPlayerIndex = (currentPlayerIndex + turnDirection + numPlayers) % numPlayers; // salto de jugador
-                        }
-                    }
-                    else
-                    {
-                    printf("Partida Guardada, hasta luego");
-                    }
-                    break;
-                case 4:
-                    if (hasK || hasQ || hasJ)
-                    {
-                        printf("Partida Guardada, hasta luego");
+                    system("cls");
+                    printf("Selecciona la carta especial a usar:\n");
+                    if (hasJ)
+                    if(players[nextPlayerIndex].cardCount % 2 == 0){
+                        printf("1. Usar J +2 cartas\n");
                     }else{
-                        printf("Opcion invalida.\n");
+                        printf("1. Usar J +4 cartas\n");
                     }
-                default:
-                    printf("\nOpcion invalida.\n");
-                    break;
+                    if (hasQ)
+                        printf("2. Usar Q (Reversa)\n");
+                    if (hasK)
+                        printf("3. Usar K (Saltar turno)\n");
+                    scanf("%d", &specialSelect);
+
+
+                    switch (specialSelect)
+                    {
+                    case 1: // JOKER
+                        if (hasJ)
+                        {
+                            int penalty = (players[nextPlayerIndex].cardCount % 2 == 0) ? 2 : 4;
+                            printf("\nSe aplicara una penalizacion de %d cartas a %s.\n", penalty, players[nextPlayerIndex].username);
+                            for (int i = 0; i < penalty && cardDealIndex < 52; i++)
+                            {
+                                players[nextPlayerIndex].CardOwn[players[nextPlayerIndex].cardCount] = cardDealIndex++;
+                                players[nextPlayerIndex].cardCount++;
+                            }
+                            cardToRemoveIdx = specialCardHandIndices[0];
+                        }
+                        break;
+                    case 2: // QUEEN
+                        if (hasQ)
+                        {
+                            printf("\n¡Reversa! El orden de los turnos ha cambiado.\n");
+                            turnDirection *= -1;
+                            cardToRemoveIdx = specialCardHandIndices[1];
+                        }
+                        break;
+                    case 3: // KING
+                        if (hasK)
+                        {
+                            printf("\n¡Salto! %s pierde su turno.\n", players[nextPlayerIndex].username);
+                            usedK = 1;
+                            cardToRemoveIdx = specialCardHandIndices[2];
+                        }
+                        break;
+                    default:
+                        printf("Seleccion invalida.\n");
+                        break;
+                    }
+
+                    if (cardToRemoveIdx != -1)
+                    {
+                        // Eliminar la carta usada de la mano del jugador
+                        for (int i = cardToRemoveIdx; i < players[currentPlayerIndex].cardCount - 1; i++)
+                        {
+                            players[currentPlayerIndex].CardOwn[i] = players[currentPlayerIndex].CardOwn[i + 1];
+                        }
+                        players[currentPlayerIndex].cardCount--;
+                    }
+                    if(usedK){
+                        currentPlayerIndex = (currentPlayerIndex + turnDirection + numPlayers) % numPlayers; // Saltar un jugador
+                    }
                 }
-                if (!opcionValida)
-                    Sleep(1500); // Espera antes de volver a mostrar el menú
+                else
+                {
+                    printf("\nOpcion invalida.\n");
+                }
+                break;
+            default:
+                printf("\nOpcion invalida.\n");
+                break;
             }
 
+            int currentHandValue = calculateHandValue(players[currentPlayerIndex], gameDeck);
+            if (currentHandValue > 21)
+            {
+                printf("\n¡Te has pasado de 21! Quedas eliminado de la ronda.\n");
+                playerStatuses[currentPlayerIndex] = 2; // 2: Eliminado
+            }
+            if (currentHandValue == 21)
+            {
+                printf("\n¡JACKONE! Has conseguido 21.\n");
+                roundOver = TRUE;
+            }
+
+            int playersStoodOrBusted = 0;
+            for (int i = 0; i < numPlayers; i++)
+            {
+                if (playerStatuses[i] != 0)
+                {
+                    playersStoodOrBusted++;
+                }
+            }
+            if (playersStoodOrBusted == numPlayers)
+            {
+                roundOver = TRUE;
+            }
+
+            Sleep(2000);
             currentPlayerIndex = (currentPlayerIndex + turnDirection + numPlayers) % numPlayers;
         }
 
-        roundNumber++;
+        // --- ASIGNACIÓN DE PUNTOS AL FINAL DE LA RONDA ---
+
+        printf("--- FIN DE LA RONDA %d ---\n\n", countRounds/numPlayers+1);
+
+        int winnerIndex = -1;
+        int winners[numPlayers];
+        int winnerCount = 0;
+        int maxScore = 0;
+
+        // Buscar ganadores con 21
+        for (int i = 0; i < numPlayers; i++)
+        {
+            if (playerStatuses[i] != 2 && calculateHandValue(players[i], gameDeck) == 21)
+            {
+                winners[winnerCount++] = i;
+            }
+        }
+
+        // Si no hay ganadores con 21, buscar el más alto sin pasarse
+        if (winnerCount == 0)
+        {
+            for (int i = 0; i < numPlayers; i++)
+            {
+                if (playerStatuses[i] != 2)
+                {
+                    int handValue = calculateHandValue(players[i], gameDeck);
+                    if (handValue > maxScore)
+                        maxScore = handValue;
+                }
+            }
+            for (int i = 0; i < numPlayers; i++)
+            {
+                if (playerStatuses[i] != 2 && calculateHandValue(players[i], gameDeck) == maxScore)
+                {
+                    winners[winnerCount++] = i;
+                }
+            }
+        }
+
+        if (winnerCount == 1)
+        {
+            winnerIndex = winners[0];
+            players[winnerIndex].score += (calculateHandValue(players[winnerIndex], gameDeck) == 21) ? 100 : 50;
+            printf("El ganador es %s con %d puntos!\n", players[winnerIndex].username, players[winnerIndex].score);
+        }
+        else if (winnerCount > 1)
+        {
+            printf("Hay un empate. Desempatando por carta más alta...\n");
+            int bestCard = 0;
+            winnerIndex = winners[0]; // Ganador por defecto
+            for (int i = 0; i < winnerCount; i++)
+            {
+                int playerIdx = winners[i];
+                int highestCard = getHighestCardValue(players[playerIdx], gameDeck);
+                if (highestCard > bestCard)
+                {
+                    bestCard = highestCard;
+                    winnerIndex = playerIdx;
+                }
+            }
+            players[winnerIndex].score += 50;
+            printf("El ganador por desempate es %s!\n", players[winnerIndex].username);
+        }
+        else
+        {
+            printf("No hay ganadores en esta ronda.\n");
+        }
+        printf("\nPuntuaciones de la ronda:\n");
+        for (int i = 0; i < numPlayers; i++)
+        {
+            if (i != winnerIndex && playerStatuses[i] != 2) // Solo si no está eliminado
+            {
+                players[i].score += calculateHandValue(players[i], gameDeck);
+            }
+            printf("- %s: %d\n", players[i].username, players[i].score);
+        }
+        SaveRecord(players, numPlayers);
+        printf("\n¡La ronda ha terminado!\n");
+        printf("¿Jugar otra partida? (s/n): ");
+        char playAgain;
+        scanf(" %c", &playAgain);
+        if (playAgain != 's' && playAgain != 'S')
+        {
+            gameOver = TRUE;
+        }
     }
 
-    SaveRecord(players, numPlayers);
     printf("¡El juego ha terminado!\n");
     system("pause");
     showMainMenu();
