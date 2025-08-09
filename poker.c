@@ -17,6 +17,7 @@ void print_bigger_card(const char *suit, const char value, const char *color);
 void generate_card_matrix(GameCard card, char card_buffer[7][7][5]);
 void SaveRecord(Player players[], int numPlayers);
 int selectNumberOfPlayers();
+void showRecords();
 
 // --- Tus funciones de dibujo (Sin cambios en su lógica interna) ---
 void print_bigger_card(const char *suit, const char value, const char *color)
@@ -255,7 +256,7 @@ void startGame()
     for (int i = 0; i < numPlayers; i++)
     {
         printf("Ingresa el nombre del jugador %d: ", i + 1);
-        scanf(" %[^\n]s", players[i].username);
+        scanf("%10s", players[i].username);
         players[i].score = 0;
         players[i].timestamp = time(NULL);
         players[i].uniqueID = players[i].timestamp + rand() % 1000;
@@ -605,10 +606,91 @@ void showRules()
     printf("--- Reglas de JackOne ---\n\n");
     printf("1. El objetivo es sumar 21 puntos.\n");
     printf("2. Si te pasas de 21, pierdes.\n");
+
     printf("3. ...etc.\n\n");
     system("pause");
 }
 
+void showRecords()
+{
+    system("cls");
+    printf("--- Marcadores ---\n\n");
+
+    FILE *record = fopen("record.txt", "r");
+    if (record == NULL)
+    {
+        printf("No se encontro el archivo de records o esta vacio.\n");
+        system("pause");
+        return;
+    }
+
+    // Contar registros correctamente
+    int count = 0;
+    Player tempPlayer;
+    while (fscanf(record, "%ld %10s %d %ld", &tempPlayer.uniqueID, tempPlayer.username, &tempPlayer.score, &tempPlayer.timestamp) == 4)
+    {
+        count++;
+    }
+
+    if (count == 0)
+    {
+        printf("El archivo de historial esta vacio.\n");
+        fclose(record);
+        system("pause");
+        return;
+    }
+
+    // Reservar memoria y leer los datos
+    Player *historicPlayers = (Player *)malloc(count * sizeof(Player));
+    if (historicPlayers == NULL)
+    {
+        printf("Error de memoria.\n");
+        fclose(record);
+        system("pause");
+        return;
+    }
+
+    rewind(record);
+    int i = 0;
+    while (i < count && fscanf(record, "%ld %10s %d %ld", &historicPlayers[i].uniqueID, historicPlayers[i].username, &historicPlayers[i].score, &historicPlayers[i].timestamp) == 4)
+    {
+        i++;
+    }
+    fclose(record);
+
+    // Ordenar por puntaje descendente
+    for (int i = 0; i < count - 1; i++)
+    {
+        for (int j = 0; j < count - i - 1; j++)
+        {
+            if (historicPlayers[j].score < historicPlayers[j + 1].score)
+            {
+                Player temp = historicPlayers[j];
+                historicPlayers[j] = historicPlayers[j + 1];
+                historicPlayers[j + 1] = temp;
+            }
+        }
+    }
+
+    printf("%-15s %-10s %-10s %-20s\n", "JUGADOR", "PUNTAJE", "ID", "FECHA Y HORA");
+    printf("-------------------------------------------------------------\n");
+    for (int i = 0; i < count; i++)
+    {
+        char fecha[32];
+        time_t t = (time_t)historicPlayers[i].timestamp;
+        struct tm *tm_info = localtime(&t);
+        strftime(fecha, sizeof(fecha), "%Y-%m-%d %H:%M:%S", tm_info);
+
+        printf("%-15s %-10d %-10ld %-20s\n",
+               historicPlayers[i].username,
+               historicPlayers[i].score,
+               historicPlayers[i].uniqueID,
+               fecha);
+    }
+    printf("\n");
+    free(historicPlayers);
+    system("pause");
+}
 void showMainMenu()
 {
     int select = 0;
@@ -643,13 +725,9 @@ void showMainMenu()
             showRules();
             break;
         case 3:
-            system("cls");
-            printf("\nMarcadores:\n");
-            printf("Jugador 1: 100 puntos\n");
-            system("pause");
+            showRecords();
             break;
         case 4:
-            system("cls");
             printf("\nGracias por jugar. ¡Adios!\n");
             break;
         default:
