@@ -51,7 +51,7 @@ typedef struct
 
 void print_hand(GameCard hand[], int num_cards);
 void printCard(const char *suit, char value, const char *color);
-void startGame();
+void startGame(int loadSavedGame);
 void showRules();
 void showMainMenu();
 void CreateDeck(GameCard deck[]);

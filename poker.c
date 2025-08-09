@@ -6,6 +6,7 @@
 #include <conio.h>
 
 #define ANSI_COLOR_RESET "\x1b[0m"
+#define MAX_PLAYERS 4
 
 FILE *SaveFile;
 
@@ -201,7 +202,7 @@ void CreateDeck(GameCard deck[])
         deck[j] = temp;
     }
 }
-
+//funcion para guardar los records de los jugadores y el histórico de jugadores
 void SaveRecord(Player players[], int numPlayers)
 {
     FILE *record = fopen("record.txt", "a");
@@ -211,7 +212,162 @@ void SaveRecord(Player players[], int numPlayers)
     }
     fclose(record);
 }
+//guarda los estados actuales de todos los jugadores
+void SaveGame(Player players[], int numPlayers, GameCard gameDeck[], int cardDealIndex, int countRounds, int playerStatuses[], int currentPlayerIndex, int turnDirection)
+{
+    FILE *game = fopen("game.txt", "w");
+    if (!game)
+    {
+        // Si no se puede abrir el archivo, no hacemos nada.
+        return;
+    }
 
+    // 1. Guardar el estado general del juego (número de jugadores, etc.)
+    fprintf(game, "%d %d %d %d %d\n",
+            numPlayers,
+            cardDealIndex,
+            countRounds,
+            currentPlayerIndex, 
+            turnDirection);    
+
+    // 2. Guardar el estado completo del mazo de cartas
+    // Esto asegura que el orden barajado se preserve.
+    for (int i = 0; i < 52; i++)
+    {
+        fprintf(game, "%s %s %d %d %d %d %s\n",
+                gameDeck[i].suit,
+                gameDeck[i].displayValue,
+                gameDeck[i].numericValue,
+                gameDeck[i].isSpecial,
+                gameDeck[i].specialValue,
+                i, // Índice de la carta para referencia
+                gameDeck[i].color);
+    }
+
+    // 3. Guardar los datos de cada jugador (LA PARTE CLAVE)
+    for (int i = 0; i < numPlayers; i++)
+    {
+        // Primero, escribimos toda la información del jugador en una línea,
+        // SIN incluir un salto de línea (\n) al final.
+        fprintf(game, "%ld %s %d %ld %d %d",
+                players[i].uniqueID,
+                players[i].username,
+                players[i].score,
+                (long)players[i].timestamp,
+                players[i].cardCount,
+                playerStatuses[i]);
+
+        // A continuación, en la MISMA línea, añadimos los índices de las cartas
+        // que tiene el jugador, separados por un espacio.
+        for (int j = 0; j < players[i].cardCount; j++)
+        {
+            fprintf(game, " %d", players[i].CardOwn[j]);
+        }
+
+        // Finalmente, AHORA SÍ, añadimos el salto de línea para que el siguiente
+        // jugador se escriba en una nueva línea.
+        fprintf(game, "\n");
+    }
+
+    fclose(game);
+}
+
+int loadGame(Player players[], int *numPlayers, GameCard gameDeck[], int *cardDealIndex, int *countRounds, int playerStatuses[],int *currentPlayerIndex, int *turnDirection)
+{
+    FILE *game = fopen("game.txt", "r");
+    if (!game)
+    {
+        printf("No se pudo cargar el juego. Archivo no encontrado.\n");
+        return 0;
+    }
+
+    int nJug, cDeal, cRounds, currPlayer, turnDir;
+    if (fscanf(game, "%d %d %d %d %d\n", &nJug, &cDeal, &cRounds, &currPlayer, &turnDir) != 5)
+    {
+        fclose(game);
+        printf("Archivo de juego corrupto o incompleto.\n");
+        return 0;
+    }
+    *numPlayers = nJug;
+    *cardDealIndex = cDeal;
+    *countRounds = cRounds;
+    *currentPlayerIndex = currPlayer;
+    *turnDirection = turnDir;
+
+    // --- Cargar el mazo con la corrección de color ---
+    for (int i = 0; i < 52; i++)
+    {
+        char suit[4], displayValue[3], colorStr[10];
+        int numericValue, isSpecial, specialValue, idx;
+
+        // Leemos todos los campos de la línea de la carta
+        fscanf(game, "%3s %2s %d %d %d %d %9s\n",
+               suit, displayValue, &numericValue, &isSpecial, &specialValue, &idx, colorStr);
+
+        strcpy(gameDeck[i].suit, suit);
+        strcpy(gameDeck[i].displayValue, displayValue);
+        gameDeck[i].numericValue = numericValue;
+        gameDeck[i].isSpecial = isSpecial;
+        gameDeck[i].specialValue = specialValue;
+
+        // --- SOLUCIÓN PARA EL COLOR ---
+        // Comparamos la cadena leída y asignamos el puntero a la constante correcta.
+        if (strcmp(colorStr, RED) == 0)
+        {
+            gameDeck[i].color = RED;
+        }
+        else if (strcmp(colorStr, WHITE) == 0)
+        {
+            gameDeck[i].color = WHITE;
+        }
+        else if (strcmp(colorStr, GREEN) == 0)
+        {
+            gameDeck[i].color = GREEN;
+        }
+        else if (strcmp(colorStr, BLUE) == 0)
+        {
+            gameDeck[i].color = BLUE;
+        }
+        else if (strcmp(colorStr, MAGENTA) == 0)
+        {
+            gameDeck[i].color = MAGENTA;
+        }
+        else if (strcmp(colorStr, CYAN) == 0)
+        {
+            gameDeck[i].color = CYAN;
+        }
+        else if (strcmp(colorStr, YELLOW) == 0)
+        {
+            gameDeck[i].color = YELLOW;
+        }
+        else
+        {
+            gameDeck[i].color = WHITE; // Un color por defecto
+        }
+    }
+
+    // --- Cargar los jugadores (esta lógica es correcta si el game.txt está bien) ---
+    for (int i = 0; i < nJug; i++)
+    {
+        fscanf(game, "%ld %10s %d %ld %d %d",
+               &players[i].uniqueID,
+               players[i].username,
+               &players[i].score,
+               (long *)&players[i].timestamp,
+               &players[i].cardCount,
+               &playerStatuses[i]);
+
+        // Este bucle leerá los índices de las cartas, asumiendo que están todos en la misma línea
+        for (int j = 0; j < players[i].cardCount; j++)
+        {
+            fscanf(game, " %d", &players[i].CardOwn[j]);
+        }
+    }
+
+    fclose(game);
+    printf("Partida cargada exitosamente desde game.txt\n");
+    return 1;
+}
 // Calcula la suma de los valores numéricos de las cartas en la mano de un jugador
 int calculateHandValue(Player player, GameCard gameDeck[])
 {
@@ -246,49 +402,76 @@ int getHighestCardValue(Player player, GameCard gameDeck[])
     return maxValue;
 }
 
-void startGame()
+void startGame(int loadSavedGame)
 {
     system("cls");
     printf("--- Iniciando el Juego ---\n\n");
-    int numPlayers = selectNumberOfPlayers();
-    printf("Numero de jugadores seleccionados: %d\n", numPlayers);
-    Player players[numPlayers];
-    for (int i = 0; i < numPlayers; i++)
+    
+    int numPlayers;
+    Player players[MAX_PLAYERS];
+
+    GameCard gameDeck[52];
+    int cardDealIndex = 0;
+    int playerStatuses[MAX_PLAYERS];
+    int countRounds = 1;
+    int alredyLoaded = 0;
+    int currentPlayerIndex = 0;
+    int turnDirection = 1;
+
+    int partidaCargada = 0;
+    if (loadSavedGame == 1)
     {
-        printf("Ingresa el nombre del jugador %d: ", i + 1);
-        scanf("%10s", players[i].username);
-        players[i].score = 0;
-        players[i].timestamp = time(NULL);
-        players[i].uniqueID = players[i].timestamp + rand() % 1000;
-        players[i].cardCount = 0;
-        printf("¡Jugador '%s' registrado!\n\n", players[i].username);
+        partidaCargada = loadGame(players, &numPlayers, gameDeck, &cardDealIndex, &countRounds, playerStatuses, &currentPlayerIndex, &turnDirection);
+        if (partidaCargada)
+        {
+            printf("Partida cargada exitosamente.\n");
+            alredyLoaded = 0;
+        }
+        else
+        {
+            printf("No se pudo cargar la partida. Iniciando una nueva partida.\n");
+        }
+        Sleep(1500);
+    }
+    if(!partidaCargada){
+        numPlayers = selectNumberOfPlayers();
+            printf("Numero de jugadores seleccionados: %d\n", numPlayers);
+        for (int i = 0; i < numPlayers; i++)
+        {
+            printf("Ingresa el nombre del jugador %d: ", i + 1);
+            scanf("%10s", players[i].username);
+            players[i].score = 0;
+            players[i].timestamp = time(NULL);
+            players[i].uniqueID = players[i].timestamp + rand() % 1000;
+            players[i].cardCount = 0;
+            printf("¡Jugador '%s' registrado!\n\n", players[i].username);
+        }
+        CreateDeck(gameDeck);
+        cardDealIndex = 0;
+        countRounds = 1;
     }
     boolean gameOver = FALSE;
     while (!gameOver)
     {
-        GameCard gameDeck[52];
-        CreateDeck(gameDeck);
-        int cardDealIndex = 0;
-        for (int i = 0; i < numPlayers; i++)
-        {
-            players[i].cardCount = 0;
-        }
-        for (int i = 0; i < 2; i++)
-        {
-            for (int j = 0; j < numPlayers; j++)
+        if(partidaCargada && alredyLoaded != 0 || !partidaCargada){
+
+            for (int i = 0; i < numPlayers; i++)
             {
-                players[j].CardOwn[players[j].cardCount] = cardDealIndex;
-                players[j].cardCount++;
-                cardDealIndex++;
+                players[i].cardCount = 0;
+            }
+            for (int i = 0; i < 2; i++)
+            {
+                for (int j = 0; j < numPlayers; j++)
+                {
+                    players[j].CardOwn[players[j].cardCount] = cardDealIndex;
+                    players[j].cardCount++;
+                    cardDealIndex++;
+                }
             }
         }
-
-        int currentPlayerIndex = 0;
+            
         boolean roundOver = FALSE;
-        int countRounds = 1;
-        int turnDirection = 1;
         int usedK = 0;
-        int playerStatuses[numPlayers];
         for (int i = 0; i < numPlayers; i++)
             playerStatuses[i] = 0; // 0: Jugando, 1: Plantado
 
@@ -371,17 +554,25 @@ void startGame()
             }
 
             printf("Elige tu jugada:\n");
+            printf("0. Guardar Partida\n");
             printf("1. Pedir una carta (DRAW)\n");
             printf("2. Plantarse (STAND)\n");
             if (hasK || hasQ || hasJ)
             {
                 printf("3. Usar una carta especial (HIT)\n");
             }
-            int select = 0;
+            int select = 10;
             scanf("%d", &select);
 
             switch (select)
             {
+            case 0: 
+                SaveGame(players, numPlayers, gameDeck, cardDealIndex, countRounds, playerStatuses, currentPlayerIndex, turnDirection);
+                printf("\nPartida guardada exitosamente.\n");
+                Sleep(1500);
+                roundOver = TRUE;
+                gameOver = TRUE;
+                continue;
             case 1:
                 if (cardDealIndex < 52)
                 {
@@ -509,11 +700,12 @@ void startGame()
         }
 
         // --- ASIGNACIÓN DE PUNTOS AL FINAL DE LA RONDA ---
+        if(!gameOver){
 
-        printf("--- FIN DE LA RONDA %d ---\n\n", countRounds/numPlayers+1);
-
-        int winnerIndex = -1;
-        int winners[numPlayers];
+            printf("--- FIN DE LA RONDA %d ---\n\n", countRounds/numPlayers+1);
+            
+            int winnerIndex = -1;
+            int winners[numPlayers];
         int winnerCount = 0;
         int maxScore = 0;
 
@@ -591,8 +783,19 @@ void startGame()
         scanf(" %c", &playAgain);
         if (playAgain != 's' && playAgain != 'S')
         {
+            CreateDeck(gameDeck);
+            cardDealIndex = 0;
+            countRounds = 1;
+            alredyLoaded = 0;
+            currentPlayerIndex = 0;
+            turnDirection = 1;
+            for (int i = 0; i < numPlayers; i++){
+                playerStatuses[i] = 0;
+            }
+            alredyLoaded++;
             gameOver = TRUE;
         }
+    }
     }
 
     printf("¡El juego ha terminado!\n");
@@ -691,10 +894,11 @@ void showRecords()
     free(historicPlayers);
     system("pause");
 }
+
 void showMainMenu()
 {
     int select = 0;
-    while (select != 4)
+    while (select != 5)
     {
         system("cls");
         printf("=== BIENVENIDO A JACKONE ===\n\n");
@@ -711,23 +915,30 @@ void showMainMenu()
         print_hand(menu_cards, 6);
         
         printf(ANSI_COLOR_RESET "\n\n1. Iniciar Juego\n");
-        printf("2. Ver Reglas\n");
-        printf("3. Ver Marcadores\n");
-        printf("4. Salir\n\n");
+        printf("2. Cargar Partida\n");
+        printf("3. Ver Reglas\n");
+        printf("4. Ver Marcadores\n");
+        printf("5. Salir\n\n");
         printf("Elige una opcion: ");
         scanf("%d", &select);
+        int loadSavedGame;
         switch (select)
         {
         case 1:
-            startGame();
+        loadSavedGame = 0;
+            startGame(loadSavedGame);
             break;
         case 2:
-            showRules();
+        loadSavedGame = 1;
+            startGame(loadSavedGame);
             break;
         case 3:
-            showRecords();
+            showRules();
             break;
         case 4:
+            showRecords();
+            break;
+        case 5:
             printf("\nGracias por jugar. ¡Adios!\n");
             break;
         default:
