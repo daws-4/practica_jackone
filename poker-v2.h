@@ -56,6 +56,7 @@ void showRules();
 void showMainMenu();
 void CreateDeck(GameCard deck[]);
 
+//funciones para mostrar cartas y mostrar cartas de forma horizontal
 void print_bigger_card(const char *suit, const char value, const char *color)
 {
     const char *card_template[7][7] = {
