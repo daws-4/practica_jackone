@@ -20,121 +20,8 @@ void SaveRecord(Player players[], int numPlayers);
 int selectNumberOfPlayers();
 void showRecords();
 
-// --- Tus funciones de dibujo (Sin cambios en su lógica interna) ---
-void print_bigger_card(const char *suit, const char value, const char *color)
-{
-    const char *card_template[7][7] = {
-        {"┌", "─", "─", "─", "─", "─", "┐"}, {"│", " ", " ", " ", " ", " ", "│"}, {"│", " ", " ", " ", " ", " ", "│"}, {"│", " ", " ", " ", " ", " ", "│"}, {"│", " ", " ", " ", " ", " ", "│"}, {"│", " ", " ", " ", " ", " ", "│"}, {"└", "─", "─", "─", "─", "─", "┘"}};
-    char dynamic_card[7][7][5];
-    for (int i = 0; i < 7; i++)
-    {
-        for (int j = 0; j < 7; j++)
-        {
-            strcpy(dynamic_card[i][j], card_template[i][j]);
-        }
-    }
-    strcpy(dynamic_card[3][3], suit);
-    if (value == '0')
-    {
-        strcpy(dynamic_card[1][1], "1");
-        strcpy(dynamic_card[1][2], "0");
-        strcpy(dynamic_card[5][4], "1");
-        strcpy(dynamic_card[5][5], "0");
-    }
-    else
-    {
-        static char value_str[2];
-        value_str[0] = value;
-        value_str[1] = '\0';
-        strcpy(dynamic_card[1][2], value_str);
-        strcpy(dynamic_card[5][4], value_str);
-    }
-    for (int i = 0; i < 7; i++)
-    {
-        for (int j = 0; j < 7; j++)
-        {
-            printf("%s%s", color, dynamic_card[i][j]);
-        }
-        printf("\n");
-    }
-    printf("\n");
-}
 
-void printCard(const char *suit, char value, const char *color)
-{
-    value = toupper(value);
-    if (value == 'J')
-    {
-        print_bigger_card(JOKER, 'J', color);
-        return;
-    }
-    if (value == '0')
-    {
-        print_bigger_card(suit, '0', color);
-        return;
-    }
-    print_bigger_card(suit, value, color);
-}
-
-// --- Tu lógica para impresión horizontal (Sin cambios) ---
-void generate_card_matrix(GameCard card, char card_buffer[7][7][5])
-{
-    const char *card_template[7][7] = {
-        {"┌", "─", "─", "─", "─", "─", "┐"}, {"│", " ", " ", " ", " ", " ", "│"}, {"│", " ", " ", " ", " ", " ", "│"}, {"│", " ", " ", " ", " ", " ", "│"}, {"│", " ", " ", " ", " ", " ", "│"}, {"│", " ", " ", " ", " ", " ", "│"}, {"└", "─", "─", "─", "─", "─", "┘"}};
-    for (int i = 0; i < 7; i++)
-    {
-        for (int j = 0; j < 7; j++)
-        {
-            strcpy(card_buffer[i][j], card_template[i][j]);
-        }
-    }
-    strcpy(card_buffer[3][3], card.suit);
-    char value = toupper(card.displayValue[0]);
-    if (value == 'J')
-    {
-        strcpy(card_buffer[3][3], JOKER);
-    }
-    if (strcmp(card.displayValue, "10") == 0)
-    {
-        strcpy(card_buffer[1][1], "1");
-        strcpy(card_buffer[1][2], "0");
-        strcpy(card_buffer[5][4], "1");
-        strcpy(card_buffer[5][5], "0");
-    }
-    else
-    {
-        char value_str[2] = {value, '\0'};
-        strcpy(card_buffer[1][2], value_str);
-        strcpy(card_buffer[5][4], value_str);
-    }
-}
-
-void print_hand(GameCard hand[], int num_cards)
-{
-    if (num_cards == 0)
-        return;
-    char all_cards_buffer[num_cards][7][7][5];
-    for (int i = 0; i < num_cards; i++)
-    {
-        generate_card_matrix(hand[i], all_cards_buffer[i]);
-    }
-    for (int row = 0; row < 7; row++)
-    {
-        for (int card_idx = 0; card_idx < num_cards; card_idx++)
-        {
-            printf("%s", hand[card_idx].color);
-            for (int col = 0; col < 7; col++)
-            {
-                printf("%s", all_cards_buffer[card_idx][row][col]);
-            }
-            printf("   ");
-        }
-        printf("\n");
-    }
-    printf("%s", WHITE);
-}
-
-// --- Tu Lógica de Menús y Jugadores (Sin cambios) ---
+//Función para seleccionar jugadores
 int selectNumberOfPlayers()
 {
     int selection = 0, key = 0;
@@ -271,7 +158,7 @@ void SaveGame(Player players[], int numPlayers, GameCard gameDeck[], int cardDea
 
     fclose(game);
 }
-
+// función para cargar los datos de una partida guardada
 int loadGame(Player players[], int *numPlayers, GameCard gameDeck[], int *cardDealIndex, int *countRounds, int playerStatuses[],int *currentPlayerIndex, int *turnDirection)
 {
     FILE *game = fopen("game.txt", "r");
@@ -806,12 +693,30 @@ void startGame(int loadSavedGame)
 void showRules()
 {
     system("cls");
-    printf("--- Reglas de JackOne ---\n\n");
-    printf("1. El objetivo es sumar 21 puntos.\n");
-    printf("2. Si te pasas de 21, pierdes.\n");
-
-    printf("3. ...etc.\n\n");
+    printf("\t\t\t\t\t --- Reglas de JackOne ---\n\n");
+    printf("||\t1. El objetivo es sumar 21 puntos. si te pasas de 21 puntos pierdes\n");
+    printf("||\t   y quedas eliminado de la ronda.\n||\n");
+    printf("||\t2. Cada jugador recibe 2 cartas al inicio de la ronda.\n||\n");
+    printf("||\t3. En tu turno, puedes:\n");
+    printf("||\t   - Pedir una carta (DRAW): Añade una carta a tu mano.\n");
+    printf("||\t   - Plantarte (STAND): Terminas tu turno y no pides más cartas.\n");
+    printf("||\t   - Usar una carta especial (HIT): Si tienes J, Q o K, puedes usarlas\n");
+    printf("||\t    para afectar a otros jugadores.\n||\n");
+    printf("||\t4. Las cartas especiales son:\n");
+    printf("||\t   - J (JOKER): Hace que el siguiente jugador robe 2 o 4 cartas\n");
+    printf("||\t    dependiendo de si tiene un número par o impar de cartas.\n");
+    printf("||\t   - Q (QUEEN): Invierte el orden de los turnos.\n");
+    printf("||\t   - K (KING): Salta el turno del siguiente jugador.\n||\n");
+    printf("||\t5. Si consigues 21 puntos, ganas automáticamente la ronda.\n||\n");
+    printf("||\t6. Si todos los jugadores se plantan o quedan eliminados, la ronda termina.\n||\n");
+    printf("||\t7. Al final de cada ronda, se asignan puntos:\n");
+    printf("||\t   - Ganar con 21 puntos: 100 puntos.\n");
+    printf("||\t   - Ganar sin 21 puntos: 50 puntos.\n");
+    printf("||\t   - Otros jugadores suman sus puntos a su puntuación total.\n||\n");
+    printf("||\t8. El juego continúa hasta que los jugadores decidan terminar\n");
+    printf("||\t   O algún jugador llegue a 21 puntos\n");
     system("pause");
+    showMainMenu();
 }
 
 void showRecords()
@@ -895,6 +800,32 @@ void showRecords()
     system("pause");
 }
 
+void showName()
+{
+    system("cls");
+    printf("%s", CYAN);
+
+    printf("\n\n\n\n");
+printf("\t\t  ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄  ▄    ▄  ▄▄▄▄▄▄▄▄▄▄▄  ▄▄        ▄  ▄▄▄▄▄▄▄▄▄▄▄  \n");
+printf("\t\t ▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░▌  ▐░▌▐░░░░░░░░░░░▌▐░░▌      ▐░▌▐░░░░░░░░░░░▌ \n");
+printf("\t\t  ▀▀▀▀▀█░█▀▀▀ ▐░█▀▀▀▀▀▀▀█░▌▐░█▀▀▀▀▀▀▀▀▀ ▐░▌ ▐░▌ ▐░█▀▀▀▀▀▀▀█░▌▐░▌░▌     ▐░▌▐░█▀▀▀▀▀▀▀▀▀  \n");
+printf("\t\t       ▐░▌    ▐░▌       ▐░▌▐░▌          ▐░▌▐░▌  ▐░▌       ▐░▌▐░▌▐░▌    ▐░▌▐░▌           \n");
+printf("\t\t       ▐░▌    ▐░█▄▄▄▄▄▄▄█░▌▐░▌          ▐░▌░▌   ▐░▌       ▐░▌▐░▌ ▐░▌   ▐░▌▐░█▄▄▄▄▄▄▄▄▄  \n");
+printf("\t\t       ▐░▌    ▐░░░░░░░░░░░▌▐░▌          ▐░░▌    ▐░▌       ▐░▌▐░▌  ▐░▌  ▐░▌▐░░░░░░░░░░░▌ \n");
+printf("\t\t       ▐░▌    ▐░█▀▀▀▀▀▀▀█░▌▐░▌          ▐░▌░▌   ▐░▌       ▐░▌▐░▌   ▐░▌ ▐░▌▐░█▀▀▀▀▀▀▀▀▀  \n");
+printf("\t\t       ▐░▌    ▐░▌       ▐░▌▐░▌          ▐░▌▐░▌  ▐░▌       ▐░▌▐░▌    ▐░▌▐░▌▐░▌           \n");
+printf("\t\t  ▄▄▄▄▄█░▌    ▐░▌       ▐░▌▐░█▄▄▄▄▄▄▄▄▄ ▐░▌ ▐░▌ ▐░█▄▄▄▄▄▄▄█░▌▐░▌     ▐░▐░▌▐░█▄▄▄▄▄▄▄▄▄  \n");
+printf("\t\t ▐░░░░░░░▌    ▐░▌       ▐░▌▐░░░░░░░░░░░▌▐░▌  ▐░▌▐░░░░░░░░░░░▌▐░▌      ▐░░▌▐░░░░░░░░░░░▌ \n");
+printf("\t\t  ▀▀▀▀▀▀▀      ▀         ▀  ▀▀▀▀▀▀▀▀▀▀▀  ▀    ▀  ▀▀▀▀▀▀▀▀▀▀▀  ▀        ▀▀  ▀▀▀▀▀▀▀▀▀▀▀ \n");
+
+printf("\n\n\n\n");
+
+printf("%s", WHITE);
+printf("          Presiona cualquier tecla para continuar...");
+
+_getch();
+}
+
 void showMainMenu()
 {
     int select = 0;
@@ -953,6 +884,7 @@ int main(int argc, char *argv[])
 {
     SetConsoleOutputCP(CP_UTF8);
     srand(time(NULL));
+    showName();
     showMainMenu();
     return 0;
 }
